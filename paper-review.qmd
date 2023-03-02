@@ -1,0 +1,14 @@
+---
+format: revealjs
+self-contained: true
+---
+
+## Paper Review Stevance & Lee (2023)
+
+![](figures/title-abstract.png)
+
+<https://doi.org/10.1093/mnras/stac3523>
+
+##
+
+## 
