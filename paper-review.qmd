@@ -2,13 +2,215 @@
 format: revealjs
 self-contained: true
 ---
+```{r}
+#| message: false
+#| include: false
+library(mvtnorm)
+library(tidyverse)
+library(tsibble)
+library(tidyr)
+library(ggplot2)
+library(latex2exp)
+library(glue)
 
-## Paper Review Stevance & Lee (2023)
+EPS <- sqrt(.Machine$double.eps)
+RANDOM_SEED <- 2023-02-10
+```
 
-![](figures/title-abstract.png)
+## Paper Review
 
-<https://doi.org/10.1093/mnras/stac3523>
+<center>
+
+![<https://doi.org/10.1093/mnras/stac3523>](figures/title-abstract.png){width=700}
+
+
+
+</center>
+
+
+## Aims
+
+1. Use gaussian processes (GPs) to resample Type II(b) SNe light curves
+2. Estimate some morphological parameters as defined by Pessi et al. (2019)
+3. Assess the appropriateness of using GPs for this purpose
+    - Goodness-of-fit of curves
+    - Clustering of SNe by morphology parameters
+
+Expecting a sharp divide between Type II and Type IIb SNe.
+
+## Type IIb SNe Light Curves
+
+![](figures/figureA1.png)
+
+## Type II SNe Light Curves
+
+![](figures/figureA2b.png)
+
+## Gaussian Process
+
+- mean function, $\mu(t)$
+- covariance or *kernel* function, $k(t_i, t_j)$
+
+$$\boldsymbol{Y} = \begin{bmatrix} Y_1 \\ \vdots \\ Y_n \end{bmatrix}  \sim \mathcal{GP}(\boldsymbol{\mu}, \boldsymbol{\Sigma})$$ where $\boldsymbol{\mu} = \mu(t_i),\; \boldsymbol{\Sigma} = \mathrm{Cov}(Y_i, Y_j) = k(t_i, t_j)\quad i,j = 1, \dots, n$.
+
+
+## 
+
+$$\textrm{Squared Exponential} \qquad k(\tau; \lambda) = A \exp\left\{-\frac{1}{2}\left( \frac{\tau}{\lambda}\right)^2\right\}$$
+
+```{r}
+sqr_exp_kernel <- function(tau, lambda) {
+  exp(-(tau/lambda)^2/2)
+}
+
+matern32_kernel <- function(tau, lambda) {
+  (1 + sqrt(3) * tau/lambda) * exp(-sqrt(3) * tau/lambda)
+}
+
+# Helper functions
+
+tau_matrix <- function(n) {
+  col_index <- matrix(rep(1:n, each = n), nrow = n)
+  row_index <- t(col_index)
+  
+  abs(col_index - row_index)
+}
+
+generate_example_gp <- function(kernel_fn, n_obs = 100, n_series = 5, plot = TRUE, ...) {
+  inputs <- list(...)
+  tau <- tau_matrix(n = n_obs)
+  K <- kernel_fn(tau = tau, ...)
+  X <- 1:n_obs
+  Ys <- rmvnorm(n_series, sigma = K)
+  Ys_ts <- cbind(t = X, as.data.frame(t(Ys))) |> 
+    as_tsibble(index = t)
+  
+  Ys_ts_tidy <- pivot_longer(Ys_ts, cols = -t, names_to = "series", values_to = "y")
+
+  if (plot) {
+    
+    p <- Ys_ts_tidy |> 
+      ggplot() +
+      aes(x = t, y = y, colour = series) +
+      geom_line() +
+      labs(title = paste0(as.character(substitute(kernel_fn)), ": N = ",
+                          n_series, "; n = ", n_obs, "; ", 
+                          paste(names(inputs), inputs, sep = " = ", collapse = ", "), ".")) +
+      theme(legend.position = "none")
+    
+    return(p)
+  }
+  else {
+    invisible(Ys_ts_tidy)
+  }
+}
+```
+
+
+```{r}
+set.seed(RANDOM_SEED)
+generate_example_gp(sqr_exp_kernel, lambda = 10)
+```
+
+## 
+
+$$\textrm{Matern-3/2}\qquad k(\tau; \lambda) = \left(1 + \sqrt{3}\left(\frac{\tau}{\lambda}\right)\right) \exp\left\{-\sqrt{3}\left(\frac{\tau}{\lambda}\right) \right\}$$
+
+```{r}
+set.seed(RANDOM_SEED)
+generate_example_gp(matern32_kernel, lambda = 10)
+```
+
+## Dataset
+
+- Twenty-one "high quality" lightcurves from the [Open Supernova Catalog](https://sne.space/) accessible by API:
+    1. evenly sampled
+    2. well-studied explosion
+    3. chosen by visual inspection (!)
 
 ##
 
-## 
+## Methodology
+
+1. Fit a GP using different kernels (RBF, Matern-3/2)
+
+2. Visually assess the goodness-of-fit
+    - mean function (peak, plateau, linear decay)
+  
+3. Estimate the morphology parameters
+    - $t_\textrm{rise}$: time between explosion to maximum light
+    - $\Delta m_{40-30}$: mag. difference between phase 30 and 40
+    - dm1: the earliest maximum of first derivative
+    - dm2: the earliest minimum of second derivative
+        
+
+## Results
+
+![](figures/figure1.png)
+
+## Matern 3/2 vs RBF
+
+<center>
+
+![](figures/figure2a.png){width=400px} ![](figures/figure2b.png){width=400px}
+
+</center>
+
+
+
+##
+
+![](figures/figure3.png)
+
+## Different GP implementations
+
+<center>
+
+![](figures/figure4.png){width=600px}
+
+</center>
+
+## First and Second Derivatives
+
+<center>
+
+![](figures/figure5a.png){width=430px} ![](figures/figure5b.png){width=430px}
+
+</center>
+
+
+NB: Matern-3/2 processes are only 1-time differentiable.
+
+## Clustering by $t_\textrm{rise}$ and $\Delta m_{40-30}$
+
+<center>
+
+![](figures/figure6.png){width=600px}
+
+</center>
+
+## Conclusions
+
+- Kernel choice is crucial, especially length-scale.
+- Adding kernels together can partially fit complex behaviours at different scales.
+- SN light curves are perhaps better fitted using non-stationary kernels that allow varying smoothness.
+- Be cautious of different software implementations of kernel turning resulting in different results.
+- Results are heavily dependent on the density of sampling.
+- Still reproduced the clustering by Pessi et al. (2019)
+
+
+## Statistical claims needing caveats
+
+- GPs tend to overfit
+  - easy to say when the physics and behaviour are known.
+  - selection of curves and goodness-of-fit was judged by visual inspection without consideration of **variances**.
+- Don't use models outside the range of their training data
+  - Depends on context, e.g., what about forecasting?
+- GP interpolations not suited to estimating dm1 and dm2
+  - Matern-$\nu$ kernels are only differentiable ("smooth") up to $\nu-1$ derivative.
+
+## Things to try
+
+- Non-stationary GP kernels
+- Uneven or sparsely sampled SNe light curves
+- Incorporate uncertainty of observations
