@@ -32,11 +32,11 @@ RANDOM_SEED <- 2023-02-10
 
 1. Use gaussian processes (GPs) to resample Type II(b) SNe light curves
 2. Estimate some morphological parameters as defined by Pessi et al. (2019)
+    - Expecting a sharp divide between Type II and Type IIb SNe.
 3. Assess the appropriateness of using GPs for this purpose
     - Goodness-of-fit of curves
     - Clustering of SNe by morphology parameters
 
-Expecting a sharp divide between Type II and Type IIb SNe.
 
 ## Type IIb SNe Light Curves
 
@@ -123,12 +123,11 @@ generate_example_gp(matern32_kernel, lambda = 10)
 
 ## Dataset
 
-- Twenty-one "high quality" lightcurves from the [Open Supernova Catalog](https://sne.space/) accessible by API:
-    1. evenly sampled
-    2. well-studied explosion
-    3. chosen by visual inspection (!)
+Twenty-one "high quality" lightcurves from the [Open Supernova Catalog](https://sne.space/) accessible by API:
 
-##
+  1. Evenly and densely sampled
+  2. Well-studied explosion
+  3. Chosen by visual inspection (!)
 
 ## Methodology
 
